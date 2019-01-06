@@ -4,24 +4,15 @@ description: Describes how to configure Istio to let applications use an externa
 weight: 60
 keywords: [traffic-management,egress]
 ---
-The [Configure an Egress Gateway](/docs/examples/advanced-gateways/egress-gateway/) example shows how to direct
-traffic to external services from your mesh via an Istio edge component called _Egress Gateway_. However, some
-cases require an external, legacy (non-Istio) HTTPS proxy to access external services. For example, your
-company may already have such a proxy in place and all the applications within the organization may be required to
-direct their traffic through it.
+[配置Egress Gateway]（/docs/examples/advanced gateways/egiss gateway/）示例显示如何通过名为“Egress Gateway”的istio组件将流量从网格引导到外部服务。但是，有些情况下需要一个外部的遗留（非ISTIO）HTTPS代理来访问外部服务。例如，您的公司可能已经有了这样的代理，并且可能需要所有应用程序通过代理来引导其流量。
 
-This example shows how to enable access to an external HTTPS proxy. Since applications use the HTTP [CONNECT](https://tools.ietf.org/html/rfc7231#section-4.3.6) method to establish connections with HTTPS proxies,
-configuring traffic to an external HTTPS proxy is different from configuring traffic to external HTTP and HTTPS
-services.
+此示例演示如何启用对外部HTTPS代理的访问。由于应用程序使用http[connect]https://tools.ietf.org/html/rfc7231 section-4.3.6）方法来稳定与https代理的连接，因此配置到外部https代理的流量与配置到外部http和https服务的流量不同。
 
 {{< boilerplate before-you-begin-egress >}}
 
-## Deploy an HTTPS proxy
+## 部署HTTPS代理
 
-To simulate a legacy proxy and only for this example, you deploy an HTTPS proxy inside your cluster.
-Also, to simulate a more realistic proxy that is running outside of your cluster, you will address the proxy's pod
-by its IP address and not by the domain name of a Kubernetes service.
-This example uses [Squid](http://www.squid-cache.org) but you can use any HTTPS proxy that supports HTTP CONNECT.
+本例中为了模拟旧代理，您在集群内部署了一个HTTPS代理。此外，为了模拟在集群外运行的更真实的代理，您将通过代理的IP地址而不是kubernetes服务的域名来寻址代理的pod。本例使用的是[squid]（http://www.squid-cache.org ），但是您可以使用任何支持HTTP连接的HTTPS代理。
 
 1.  Create a namespace for the HTTPS proxy, without labeling it for sidecar injection. Without the label, sidecar
     injection is disabled in the new namespace so Istio will not control the traffic there.
