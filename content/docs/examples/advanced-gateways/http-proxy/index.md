@@ -1,37 +1,26 @@
 ---
-title: Connect to an external HTTPS proxy
-description: Describes how to configure Istio to let applications use an external HTTPS proxy.
+title: 链接到一个外部的HTTPS代理
+description: 描述如何配置ISIO以允许应用程序使用外部HTTPS代理.
 weight: 60
 keywords: [traffic-management,egress]
 ---
-The [Configure an Egress Gateway](/docs/examples/advanced-gateways/egress-gateway/) example shows how to direct
-traffic to external services from your mesh via an Istio edge component called _Egress Gateway_. However, some
-cases require an external, legacy (non-Istio) HTTPS proxy to access external services. For example, your
-company may already have such a proxy in place and all the applications within the organization may be required to
-direct their traffic through it.
+[配置Egress Gateway]（/docs/examples/advanced gateways/egiss gateway/）示例显示如何通过名为“Egress Gateway”的istio组件将流量从网格引导到外部服务。但是，有些情况下需要一个外部的遗留（非ISTIO）HTTPS代理来访问外部服务。例如，您的公司可能已经有了这样的代理，并且可能需要所有应用程序通过代理来引导其流量。
 
-This example shows how to enable access to an external HTTPS proxy. Since applications use the HTTP [CONNECT](https://tools.ietf.org/html/rfc7231#section-4.3.6) method to establish connections with HTTPS proxies,
-configuring traffic to an external HTTPS proxy is different from configuring traffic to external HTTP and HTTPS
-services.
+此示例演示如何启用对外部HTTPS代理的访问。由于应用程序使用http[connect]https://tools.ietf.org/html/rfc7231 section-4.3.6）方法来稳定与https代理的连接，因此配置到外部https代理的流量与配置到外部http和https服务的流量不同。
 
 {{< boilerplate before-you-begin-egress >}}
 
-## Deploy an HTTPS proxy
+## 部署HTTPS代理
 
-To simulate a legacy proxy and only for this example, you deploy an HTTPS proxy inside your cluster.
-Also, to simulate a more realistic proxy that is running outside of your cluster, you will address the proxy's pod
-by its IP address and not by the domain name of a Kubernetes service.
-This example uses [Squid](http://www.squid-cache.org) but you can use any HTTPS proxy that supports HTTP CONNECT.
+本例中为了模拟旧代理，您在集群内部署了一个HTTPS代理。此外，为了模拟在集群外运行的更真实的代理，您将通过代理的IP地址而不是kubernetes服务的域名来寻址代理的pod。本例使用的是[squid]（http://www.squid-cache.org ），但是您可以使用任何支持HTTP连接的HTTPS代理。
 
-1.  Create a namespace for the HTTPS proxy, without labeling it for sidecar injection. Without the label, sidecar
-    injection is disabled in the new namespace so Istio will not control the traffic there.
-    You need this behavior to simulate the proxy being outside of the cluster.
+1.  为HTTPS代理创建一个名称空间，而不标记为用于SideCar注入。如果没有标签，则在新名称空间中SideCar注入是不可用的，因此Isito将无法控制那里的流量。您需要在集群之外通过这种行为来模拟代理。
 
     {{< text bash >}}
     $ kubectl create namespace external
     {{< /text >}}
 
-1.  Create a configuration file for the Squid proxy.
+1.  为Squid代理创建配置文件.
 
     {{< text bash >}}
     $ cat <<EOF > ./proxy.conf
@@ -49,14 +38,13 @@ This example uses [Squid](http://www.squid-cache.org) but you can use any HTTPS 
     EOF
     {{< /text >}}
 
-1.  Create a Kubernetes [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/)
-    to hold the configuration of the proxy:
+1.  创建kubernetes[configmap]（https://kubernetes.io/docs/tasks/configure-pod-ontainer/configure-pod-configmap/ ）以保存代理的配置:
 
     {{< text bash >}}
     $ kubectl create configmap proxy-configmap -n external --from-file=squid.conf=./proxy.conf
     {{< /text >}}
 
-1.  Deploy a container with Squid:
+1.  使用Squid部署容器:
 
     {{< text bash >}}
     $ kubectl apply -f - <<EOF
@@ -87,52 +75,48 @@ This example uses [Squid](http://www.squid-cache.org) but you can use any HTTPS 
     EOF
     {{< /text >}}
 
-1.  Deploy the [sleep]({{< github_tree >}}/samples/sleep) sample in the `external` namespace to test traffic to the
-    proxy without Istio traffic control.
+1.  在“external”名称空间中部署[sleep]（<github_tree>/samples/sleep）示例，以测试到代理的通信量，而不进行ISIO流量控制.
 
     {{< text bash >}}
     $ kubectl apply -n external -f @samples/sleep/sleep.yaml@
     {{< /text >}}
 
-1.  Obtain the IP address of the proxy pod and define the `PROXY_IP` environment variable to store it:
+1.  获取代理pod的IP地址并定义“proxy-ip”环境变量来存储它:
 
     {{< text bash >}}
     $ export PROXY_IP=$(kubectl get pod -n external -l app=squid -o jsonpath={.items..podIP})
     {{< /text >}}
 
-1.  Define the `PROXY_PORT` environment variable to store the port of your proxy. In this case, Squid uses port
-    3128.
+1.  定义'proxy_port'环境变量以存储代理的端口。本例中，Squid使用 3128 端口。
 
     {{< text bash >}}
     $ export PROXY_PORT=3128
     {{< /text >}}
 
-1.  Send a request from the `sleep` pod in the `external` namespace to an external service via the proxy:
+1.  从“external”命名空间中的“sleep”pod通过代理向外部服务发送请求:
 
     {{< text bash >}}
     $ kubectl exec -it $(kubectl get pod -n external -l app=sleep -o jsonpath={.items..metadata.name}) -n external -- sh -c "HTTPS_PROXY=$PROXY_IP:$PROXY_PORT curl https://en.wikipedia.org/wiki/Main_Page" | grep -o "<title>.*</title>"
     <title>Wikipedia, the free encyclopedia</title>
     {{< /text >}}
 
-1.  Check the access log of the proxy for your request:
+1.  检查您请求的代理的访问日志:
 
     {{< text bash >}}
     $ kubectl exec -it $(kubectl get pod -n external -l app=squid -o jsonpath={.items..metadata.name}) -n external -- tail -f /var/log/squid/access.log
     1544160065.248    228 172.30.109.89 TCP_TUNNEL/200 87633 CONNECT en.wikipedia.org:443 - HIER_DIRECT/91.198.174.192 -
     {{< /text >}}
 
-So far, you completed the following tasks without Istio:
+现在，您在没有Istio的情况下完成了以下任务:
 
-* You deployed the HTTPS proxy.
-* You used `curl` to access the `wikipedia.org` external service through the proxy.
+* 您部署了HTTPS代理.
+* 您使用“curl”通过代理访问“wikipedia.org”外部服务.
 
-Next, you must configure the traffic from the Istio-enabled pods to use the HTTPS proxy.
+下一步，您必须配置来自Istio-enabled的pods的流量以使用HTTPS代理.
 
-## Configure traffic to external HTTPS proxy
+## 配置流量到外部HTTPS代理
 
-1.  Define a TCP (not HTTP!) Service Entry for the HTTPS proxy. Although applications use the HTTP CONNECT method to
-    establish connections with HTTPS proxies, you must configure the proxy for TCP traffic, instead of HTTP. Once the
-    connection is established, the proxy simply acts as a TCP tunnel.
+1.  为HTTPS代理定义TCP（不是HTTP！）服务实体。尽管应用程序使用HTTP CONNECT方法与HTTPS代理建立连接，但必须为TCP通信而不是HTTP通信配置代理。一旦建立了连接，代理就简单地充当TCP隧道。
 
     {{< text bash >}}
     $ kubectl apply -f - <<EOF
@@ -153,54 +137,51 @@ Next, you must configure the traffic from the Istio-enabled pods to use the HTTP
     EOF
     {{< /text >}}
 
-1.  Send a request from the `sleep` pod in the `default` namespace. Because the `sleep` pod has a sidecar,
-    Istio controls its traffic.
+1.  从“default”命名空间中的“sleep”pod发送请求。因为“sleep” pod有sidecar，Isito控制着它的流量
 
     {{< text bash >}}
     $ kubectl exec -it $SOURCE_POD -c sleep -- sh -c "HTTPS_PROXY=$PROXY_IP:$PROXY_PORT curl https://en.wikipedia.org/wiki/Main_Page" | grep -o "<title>.*</title>"
     <title>Wikipedia, the free encyclopedia</title>
     {{< /text >}}
 
-1.  Check the Istio sidecar proxy's logs for your request:
+1.  查看您请求的Isito sidecar代理的日志:
 
     {{< text bash >}}
     $ kubectl logs $SOURCE_POD -c istio-proxy
     [2018-12-07T10:38:02.841Z] "- - -" 0 - 702 87599 92 - "-" "-" "-" "-" "172.30.109.95:3128" outbound|3128||my-company-proxy.com 172.30.230.52:44478 172.30.109.95:3128 172.30.230.52:44476 -
     {{< /text >}}
 
-1.  Check the access log of the proxy for your request:
+1.  查看您请求的代理的访问日志:
 
     {{< text bash >}}
     $ kubectl exec -it $(kubectl get pod -n external -l app=squid -o jsonpath={.items..metadata.name}) -n external -- tail -f /var/log/squid/access.log
     1544160065.248    228 172.30.109.89 TCP_TUNNEL/200 87633 CONNECT en.wikipedia.org:443 - HIER_DIRECT/91.198.174.192 -
     {{< /text >}}
 
-## Understanding what happened
+## 了解发生的事情
 
-In this example, you took the following steps:
+在本例中，您采取了以下步骤:
 
-1. Deployed an HTTPS proxy to simulate an external proxy.
-1. Created a TCP service entry to enable Istio-controlled traffic to the external proxy.
+1. 部署了一个HTTPS代理来模拟外部代理.
+2. 创建了一个TCP服务实体，以启用到外部代理的ISIO控制流量.
 
-Note that you must not create service entries for the external services you access through the external proxy, like
-`wikipedia.org`. This is because from Istio's point of view the requests are sent to the external proxy only; Istio is
-not aware of the fact that the external proxy forwards the requests further.
+请注意，您不能为通过外部代理访问的外部服务创建服务实体，例如`wikipedia.org`。这是因为从istio的角度来看，请求只发送到外部代理；istio并不知道外部代理进一步转发请求。
 
 ## Cleanup
 
-1.  Shutdown the [sleep]({{<github_tree>}}/samples/sleep) service:
+1.  关闭[sleep]（<github_tree>/samples/sleep）服务:
 
     {{< text bash >}}
     $ kubectl delete -f @samples/sleep/sleep.yaml@
     {{< /text >}}
 
-1.  Shutdown the [sleep]({{<github_tree>}}/samples/sleep) service in the `external` namespace:
+1.  关闭“external”命名空间中的[sleep]（<github_tree>/samples/sleep）服务:
 
     {{< text bash >}}
     $ kubectl delete -f @samples/sleep/sleep.yaml@ -n external
     {{< /text >}}
 
-1.  Shutdown the Squid proxy, remove the `ConfigMap` and the configuration file:
+1.  关闭Squid代理，删除“ConfigMap”和配置文件:
 
     {{< text bash >}}
     $ kubectl delete -n external deployment squid
@@ -208,13 +189,13 @@ not aware of the fact that the external proxy forwards the requests further.
     $ rm ./proxy.conf
     {{< /text >}}
 
-1.  Delete the `external` namespace:
+1.  删除“external”命名空间:
 
     {{< text bash >}}
     $ kubectl delete namespace external
     {{< /text >}}
 
-1.  Delete the Service Entry:
+1.  删除服务实体:
 
     {{< text bash >}}
     $ kubectl delete serviceentry proxy
